@@ -1,0 +1,13 @@
+name: Lifesteal-Addon
+version: '${project.version}'
+main: eu.darkcode.lifestealaddon.Core
+api-version: '1.20'
+authors: [96DarkCode96]
+description: Lifesteal addon - worldborder and mysql data of players
+website: https://www.matejtomecek.eu/
+commands:
+  border:
+    description: "Manage world's border"
+    aliases: [worldborder, wb, wborder]
+    usage: "/border [set|remove] [<world>] [<size>]"
+    permission: slux.developer
