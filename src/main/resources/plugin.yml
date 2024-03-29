@@ -1,4 +1,4 @@
-name: Lifesteal-Addon
+name: LifestealAddon
 version: '${project.version}'
 main: eu.darkcode.lifestealaddon.Core
 api-version: '1.20'

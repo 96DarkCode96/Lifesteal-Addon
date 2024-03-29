@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="LifestealAddon">
+    <output-path>$PROJECT_DIR$/../../../../../../..</output-path>
+    <root id="archive" name="LifestealAddon.jar">
+      <element id="module-output" name="Lifesteal-Addon" />
+    </root>
+  </artifact>
+</component>

@@ -1,6 +1,7 @@
 package eu.darkcode.lifestealaddon.utils;
 
 import com.google.gson.*;
+import com.google.gson.reflect.TypeToken;
 import org.bukkit.potion.PotionEffect;
 
 import java.util.ArrayList;
@@ -37,7 +38,7 @@ public class PotionEffectsUtils {
 
     public static PotionEffect deserializeEffect(JsonElement effect) {
         if(effect == null) return null;
-        Map<String, Object> map = (Map<String, Object>) GSON.fromJson(effect, Map.class);
+        Map<String, Object> map = GSON.fromJson(effect, new TypeToken<Map<String, Object>>(){}.getType());
         map.put("duration", ((Number)map.getOrDefault("duration", 0)).intValue());
         map.put("amplifier", ((Number)map.getOrDefault("amplifier", 0)).intValue());
         return new PotionEffect(map);
