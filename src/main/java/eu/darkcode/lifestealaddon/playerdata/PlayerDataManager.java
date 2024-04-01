@@ -11,15 +11,15 @@ import eu.darkcode.lifestealaddon.playerdata.entries.PlayerDataEntryManager;
 import eu.darkcode.lifestealaddon.utils.MethodResult;
 import lombok.Getter;
 import org.bukkit.Bukkit;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.sql.*;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.time.Instant;
+import java.util.*;
 import java.util.logging.Level;
 
 @Getter
@@ -63,9 +63,15 @@ public final class PlayerDataManager {
                     yamlConfiguration.getString("db_jdbc", "jdbc:mysql://localhost:3306/sluxrecruitment?useSSL=false&autoReconnect=true"),
                     yamlConfiguration.getString("db_username"),
                     yamlConfiguration.getString("db_password"));
+
             SQLActionBuilder.function(PreparedStatement::execute)
                     .sql("CREATE TABLE IF NOT EXISTS `player_data` (`uuid` UUID NOT NULL, `name` VARCHAR(16) NOT NULL, `data` JSON NOT NULL,  PRIMARY KEY (`uuid`))")
                     .execute(conn);
+
+            SQLActionBuilder.function(PreparedStatement::execute)
+                    .sql("CREATE TABLE IF NOT EXISTS `player_data_log` (`uuid` UUID NOT NULL, `name` VARCHAR(16) NOT NULL, `eventId` TINYINT UNSIGNED NOT NULL, `date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, `comment` JSON NOT NULL)")
+                    .execute(conn);
+
         } catch(SQLNonTransientConnectionException e) {
             throw new RuntimeException("Failed to connect to database!", e);
         } catch (Throwable e) {
@@ -73,6 +79,97 @@ public final class PlayerDataManager {
         }
 
         Bukkit.getPluginManager().registerEvents(new PlayerDataListener(this), core);
+
+        PluginCommand cmd = core.getCommand("playerdatalog");
+        if(cmd == null) {
+            Bukkit.getLogger().warning("Failed to register playerdatalog command!");
+        }else{
+            cmd.setExecutor(new PlayerDataLogCommand(this));
+            cmd.setTabCompleter(new PlayerDataLogCommand(this));
+        }
+    }
+
+    public void removeOldLogsByUUID(@NotNull UUID uuid) {
+        removeOldLogsByUUID(uuid.toString().replaceAll("-", ""));
+    }
+
+    public void removeOldLogsByUUID(@NotNull String uuid) {
+        try {
+            SQLActionBuilder.function(PreparedStatement::execute)
+                    .sql("DELETE FROM `player_data_log` WHERE `uuid` = ? AND NOW() - `date` >= 604800")
+                    .prepare((ps) -> ps.setString(1, uuid))
+                    .execute(conn);
+        } catch (Throwable e) {
+            Bukkit.getLogger().log(Level.SEVERE, "Failed to remove old player's data logs for uuid: " + uuid, e);
+        }
+    }
+
+    public @Nullable Collection<PlayerDataLog> getLogsByName(@NotNull String name) {
+        try {
+            return SQLActionBuilder.function((ps) -> {
+                        ResultSet resultSet = ps.executeQuery();
+                        List<PlayerDataLog> logs = new ArrayList<>();
+                        while(resultSet.next()) {
+                            logs.add(PlayerDataLog.of(
+                                    resultSet.getString("uuid"),
+                                    resultSet.getString("name"),
+                                    PlayerDataLog.Event.fromId(resultSet.getInt("eventId")),
+                                    resultSet.getTimestamp("date").toInstant().toEpochMilli(),
+                                    GSON.fromJson(resultSet.getString("comment"), JsonObject.class)
+                            ));
+                        }
+                        return logs;
+                    })
+                    .sql("SELECT * FROM `player_data_log` WHERE `name` = ?")
+                    .prepare((ps) -> ps.setString(1, name))
+                    .retry(getConn(), 5);
+        } catch (Throwable e) {
+            Bukkit.getLogger().log(Level.SEVERE, "Failed to grab player's data logs for name: " + name, e);
+            return null;
+        }
+    }
+
+    public @Nullable Collection<PlayerDataLog> getLogsByUUID(@NotNull String uuid) {
+        try {
+            return SQLActionBuilder.function((ps) -> {
+                        ResultSet resultSet = ps.executeQuery();
+                        List<PlayerDataLog> logs = new ArrayList<>();
+                        while(resultSet.next()) {
+                            logs.add(PlayerDataLog.of(
+                                    resultSet.getString("uuid"),
+                                    resultSet.getString("name"),
+                                    PlayerDataLog.Event.fromId(resultSet.getInt("eventId")),
+                                    resultSet.getTimestamp("date").toInstant().toEpochMilli(),
+                                    GSON.fromJson(resultSet.getString("comment"), JsonObject.class)
+                            ));
+                        }
+                        return logs;
+                    })
+                    .sql("SELECT * FROM `player_data_log` WHERE `uuid` = ?")
+                    .prepare((ps) -> ps.setString(1, uuid))
+                    .retry(getConn(), 5);
+        } catch (Throwable e) {
+            Bukkit.getLogger().log(Level.SEVERE, "Failed to grab player's data logs for uuid: " + uuid, e);
+            return null;
+        }
+    }
+
+    public boolean logPlayerData(@NotNull PlayerDataLog log) {
+        try {
+            return SQLActionBuilder.function(PreparedStatement::executeUpdate)
+                    .sql("INSERT INTO `player_data_log` (`uuid`, `name`, `eventId`, `comment`) VALUES (?, ?, ?, ?)")
+                    .prepare((ps) -> {
+                        ps.setString(1, log.getUuid());
+                        ps.setString(2, log.getName());
+                        ps.setInt(3, log.getEventId());
+                        ps.setString(4, GSON.toJson(log.getComment()));
+                    })
+                    .retry(getConn(), 5) != 0;
+        } catch (Throwable e) {
+            // MAYBE FOR BETTER ERROR HANDLING ADD FAILED DATA STORAGE (AKA SAVES TO FILE IF FAILED TO DATABASE - BETTER FOR ROLLBACK)
+            Bukkit.getLogger().log(Level.SEVERE, "Failed to log player data for " + log.getName() + " (" + log.getUuid() + ")", e);
+            return false;
+        }
     }
 
     public boolean savePlayerData(@NotNull String name, @NotNull UUID uuid, @NotNull JsonElement data) {
@@ -85,28 +182,29 @@ public final class PlayerDataManager {
                         ps.setString(2, name);
                         ps.setString(3, GSON.toJson(data));
                     })
-                    .retry(getConn(), 5) == 1;
+                    .retry(getConn(), 5) != 0;
         } catch (Throwable e) {
             // MAYBE FOR BETTER ERROR HANDLING ADD FAILED DATA STORAGE (AKA SAVES TO FILE IF FAILED TO DATABASE - BETTER FOR ROLLBACK)
             Bukkit.getLogger().log(Level.SEVERE, "Failed to save player data for " + name + " (" + uuid + ")", e);
+            Bukkit.getLogger().info("DATA: " + GSON.toJson(data));
             return false;
         }
     }
 
-    public @Nullable JsonObject getPlayerData(@NotNull String name, @NotNull UUID uuid) {
+    public @NotNull MethodResult getPlayerData(@NotNull String name, @NotNull UUID uuid) {
         try {
             Bukkit.getLogger().info("Loading player data for " + name + " (" + uuid + ")");
             return SQLActionBuilder.function((ps) -> {
                         ResultSet resultSet = ps.executeQuery();
-                        if(!resultSet.next()) return null;
-                        return GSON.fromJson(resultSet.getString("data"), JsonObject.class);
+                        if(!resultSet.next()) return MethodResult.success(null);
+                        return MethodResult.success(GSON.fromJson(resultSet.getString("data"), JsonObject.class));
                     })
                     .sql("SELECT `data` FROM `player_data` WHERE `uuid` = ?")
                     .prepare((ps) -> ps.setString(1, uuid.toString().replaceAll("-", "")))
                     .retry(getConn(), 5);
         } catch (Throwable e) {
             Bukkit.getLogger().log(Level.SEVERE, "Failed to load player data for " + name + " (" + uuid + ")", e);
-            return null;
+            return MethodResult.error(e);
         }
     }
 

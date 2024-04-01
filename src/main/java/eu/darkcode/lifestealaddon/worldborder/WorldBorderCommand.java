@@ -22,6 +22,7 @@ public record WorldBorderCommand(WorldBorderManager worldBorderManager) implemen
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (!sender.hasPermission("slux.developer")) {
             MessageUtil.send(sender, "&cYou are not allowed to do this!");
+            if(sender instanceof Player player) SoundUtil.playSound(player, Sound.ENTITY_VILLAGER_NO);
             return true;
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("set")) {

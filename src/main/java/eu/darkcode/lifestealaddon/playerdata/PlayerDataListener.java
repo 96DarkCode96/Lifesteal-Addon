@@ -14,6 +14,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
@@ -53,7 +54,30 @@ public final class PlayerDataListener implements Listener {
         // START ASYNC LOADING OF DATA
         loadingPlayers.put(player.getUniqueId(), Bukkit.getScheduler().runTaskAsynchronously(playerDataManager.getCore(), () -> {
             // LOAD PLAYER DATA
-            JsonObject playerData = playerDataManager.getPlayerData(player.getName(), player.getUniqueId());
+            MethodResult playerData1 = playerDataManager.getPlayerData(player.getName(), player.getUniqueId());
+
+            if(!playerData1.isSuccess()) {
+                // REMOVE FROM LOADING LIST
+                loadingPlayers.remove(player.getUniqueId());
+
+                player.setCanPickupItems(true);
+
+                // KICK PLAYER
+                Bukkit.getScheduler().callSyncMethod(playerDataManager.getCore(), () -> {
+                    MessageUtil.kick(player, "&8[&cServer&8] &7Failed to load your data!");
+                    playerDataManager.logPlayerData(PlayerDataLog.loadFailed(player));
+                    return null;
+                });
+
+                // LOG FAILURE
+                if(playerData1.hasError())
+                    Bukkit.getLogger().log(Level.SEVERE, "Failed to load player data! (" + player.getName() + ")", playerData1.getError());
+                else
+                    Bukkit.getLogger().log(Level.SEVERE, "Failed to load player data! (" + player.getName() + ")");
+                return;
+            }
+
+            JsonObject playerData = (JsonObject) playerData1.getResult();
 
             List<PlayerDataEntry> dataEntries = playerDataManager.getEntryManager().getEntries().stream()
                     .filter(entry -> entry.canLoad(playerData))
@@ -72,6 +96,7 @@ public final class PlayerDataListener implements Listener {
                 // KICK PLAYER
                 Bukkit.getScheduler().callSyncMethod(playerDataManager.getCore(), () -> {
                     MessageUtil.kick(player, "&8[&cServer&8] &7Failed to load your data!");
+                    playerDataManager.logPlayerData(PlayerDataLog.loadFailed(player));
                     return null;
                 });
 
@@ -98,6 +123,13 @@ public final class PlayerDataListener implements Listener {
                 player.removePotionEffect(PotionEffectType.DARKNESS);
                 return null;
             });
+
+            if(playerData == null)
+                playerDataManager.logPlayerData(PlayerDataLog.loadFirstJoin(player));
+            else
+                playerDataManager.logPlayerData(PlayerDataLog.load(player));
+
+            playerDataManager.removeOldLogsByUUID(player.getUniqueId());
         }));
     }
 
@@ -141,12 +173,21 @@ public final class PlayerDataListener implements Listener {
         stopLoading(event.getPlayer());
     }
 
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        playerDataManager.logPlayerData(PlayerDataLog.death(event));
+    }
+
     private void stopLoading(Player player) {
         BukkitTask remove = loadingPlayers.remove(player.getUniqueId());
         if(remove != null) {
             remove.cancel();
         } else {
-            playerDataManager.savePlayerData(player.getName(), player.getUniqueId(), playerDataManager.fetch(player));
+            if (playerDataManager.savePlayerData(player.getName(), player.getUniqueId(), playerDataManager.fetch(player))) {
+                playerDataManager.logPlayerData(PlayerDataLog.save(player));
+            }else {
+                playerDataManager.logPlayerData(PlayerDataLog.saveFailed(player));
+            }
         }
     }
 
