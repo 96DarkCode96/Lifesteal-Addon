@@ -14,8 +14,7 @@ public final class PlayerDataEntryManager {
 
     public PlayerDataEntryManager(PlayerDataManager manager) {
         this.manager = manager;
-        entries = List.of(
-                new MaxHealthDataEntry(), new LocationDataEntry(manager.getCore().getWorldBorderManager()), new ExpDataEntry(), new InventoryDataEntry(),
+        entries = List.of(new MaxHealthDataEntry(), new LocationDataEntry(manager.getCore().getWorldBorderManager()), new ExpDataEntry(), new InventoryDataEntry(),
                 new EffectsDataEntry(), new EnderChestDataEntry(), new RespawnLocationDataEntry(), new DiscoveredRecipesDataEntry());
     }
 

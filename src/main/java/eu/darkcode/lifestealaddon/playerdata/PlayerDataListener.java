@@ -36,7 +36,7 @@ public final class PlayerDataListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerJoin(@NotNull org.bukkit.event.player.PlayerJoinEvent event) {
+    public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
         // NOTIFY PLAYER OF LOADING

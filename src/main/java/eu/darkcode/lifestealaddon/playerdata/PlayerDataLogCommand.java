@@ -13,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -36,6 +37,7 @@ public final class PlayerDataLogCommand implements TabExecutor {
             if(sender instanceof Player player) SoundUtil.playSound(player, Sound.ENTITY_VILLAGER_NO);
             return true;
         }
+
         if(args.length == 2) {
             Collection<PlayerDataLog> logs;
             if(args[0].equalsIgnoreCase("name")){
@@ -51,24 +53,17 @@ public final class PlayerDataLogCommand implements TabExecutor {
             }
             if(logs == null){
                 if(sender instanceof Player player) SoundUtil.playSound(player, Sound.ENTITY_VILLAGER_NO);
-                MessageUtil.send(sender, "&8[&cData Log&8] &8» &cFailed to load logs!");
+                MessageUtil.send(sender, "&8[&cData Log&8] &cFailed to load logs!");
                 return true;
             }
             if(logs.isEmpty()){
                 if(sender instanceof Player player) SoundUtil.playSound(player, Sound.ENTITY_VILLAGER_HURT);
-                MessageUtil.send(sender, "&8[&cData Log&8] &8» &cNo logs found!");
+                MessageUtil.send(sender, "&8[&cData Log&8] &cNo logs found!");
                 return true;
             }
             List<String> messages = new ArrayList<>();
-            DateTimeFormatter timeFormatter;
-            if(sender instanceof Player player) {
-                String locale = player.getLocale();
-                String[] s = locale.split("_");
-                if(s.length == 2) timeFormatter = TIME_FORMATTER.withLocale(Locale.of(s[0], s[1]));
-                else timeFormatter = TIME_FORMATTER;
-            } else timeFormatter = TIME_FORMATTER;
             logs.stream().sorted(Comparator.comparingLong(PlayerDataLog::getDateMillis)).forEach(log -> {
-                messages.add("&8[&cData Log&8] &8» &7" + timeFormatter.format(Instant.ofEpochMilli(log.getDateMillis())) + " - &c" + log.getEvent().getName());
+                messages.add("&8[&cData Log&8] &8» &7" + TIME_FORMATTER.format(Instant.ofEpochMilli(log.getDateMillis())) + " - &c" + log.getEvent().getName());
                 log.getComment().entrySet().forEach(entry -> messages.add("&8[&cData Log&8]   &8» &7" + entry.getKey() + ": " + entry.getValue()));
             });
             MessageUtil.send(sender, String.join("\n", messages));
