@@ -13,10 +13,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Getter
@@ -82,9 +84,18 @@ public final class PlayerDataLogCommand implements TabExecutor {
         if (args.length == 1)
             return List.of("name", "uuid");
         if (args.length == 2 && args[0].equalsIgnoreCase("name"))
-            return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+            return Bukkit.getOnlinePlayers()
+                    .stream()
+                    .map(Player::getName)
+                    .filter(name -> name.toLowerCase().startsWith(args[1].toLowerCase()))
+                    .collect(Collectors.toList());
         if (args.length == 2 && args[0].equalsIgnoreCase("uuid"))
-            return Bukkit.getOnlinePlayers().stream().map(Player::getUniqueId).map(uuid -> uuid.toString().replaceAll("-", "")).collect(Collectors.toList());
+            return Bukkit.getOnlinePlayers()
+                    .stream()
+                    .map(Player::getUniqueId)
+                    .map(uuid -> uuid.toString().replaceAll("-", ""))
+                    .filter(uuid -> uuid.toLowerCase().startsWith(args[1].toLowerCase()))
+                    .collect(Collectors.toList());
         return List.of();
     }
 }

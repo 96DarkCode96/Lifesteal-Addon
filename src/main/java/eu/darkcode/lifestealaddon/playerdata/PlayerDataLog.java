@@ -2,7 +2,6 @@ package eu.darkcode.lifestealaddon.playerdata;
 
 import com.google.gson.JsonObject;
 import lombok.Getter;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.jetbrains.annotations.NotNull;

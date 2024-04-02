@@ -7,6 +7,7 @@ import eu.darkcode.lifestealaddon.utils.MessageUtil;
 import eu.darkcode.lifestealaddon.worldborder.WorldBorderManager;
 import lombok.Getter;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 @Getter
@@ -39,15 +40,17 @@ public final class Core extends JavaPlugin {
     @Override
     public void onDisable() {
         if(playerDataManager != null){
-            Bukkit.getOnlinePlayers().forEach(player -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
                 MessageUtil.kick(player, "&7Restarting...");
                 if (playerDataManager.savePlayerData(player.getName(), player.getUniqueId(), playerDataManager.fetch(player))) {
                     playerDataManager.logPlayerData(PlayerDataLog.save(player));
                 }else{
                     playerDataManager.logPlayerData(PlayerDataLog.saveFailed(player));
                 }
-            });
+            }
             playerDataManager.close();
+        }else{
+            Bukkit.getLogger().info("Data of players could not be saved! (PlayerDataManager not initialized!)");
         }
 
         Bukkit.getLogger().info("Lifesteal Addon has been disabled!");
