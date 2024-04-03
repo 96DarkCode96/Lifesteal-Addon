@@ -27,12 +27,13 @@ import java.util.logging.Level;
 public final class PlayerDataManager {
 
     private static final Gson GSON = new GsonBuilder().create();
-    private static final long AUTO_SAVE_DELAY = 20 * 60 * 30; // 30 minutes
+    private static final long AUTO_SAVE_DELAY = 20 * 60 * 10; // 10 minutes
     private final @NotNull Core core;
     private final IPluginConfig config;
     private final Connection conn;
     private final PlayerDataEntryManager entryManager;
     private final BukkitTask autoSaveTask;
+    private final PlayerDataListener listener;
 
     public PlayerDataManager(@NotNull Core core) throws DatabaseNotEnabledException{
         this.core = core;
@@ -82,7 +83,8 @@ public final class PlayerDataManager {
             throw new RuntimeException(e);
         }
 
-        Bukkit.getPluginManager().registerEvents(new PlayerDataListener(this), core);
+        listener = new PlayerDataListener(this);
+        Bukkit.getPluginManager().registerEvents(listener, core);
 
         PluginCommand cmd = core.getCommand("playerdatalog");
         if(cmd == null) {
@@ -94,6 +96,7 @@ public final class PlayerDataManager {
 
         autoSaveTask = Bukkit.getScheduler().runTaskTimer(core, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
+                if(listener.getLoadingPlayers().containsKey(player.getUniqueId())) continue;
                 if (savePlayerData(player.getName(), player.getUniqueId(), fetch(player))) {
                     logPlayerData(PlayerDataLog.autoSave(player));
                     MessageUtil.send(player, "&8[&cServer&8] &7Your player data has been saved! (Auto-Save)");

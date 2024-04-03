@@ -16,7 +16,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
-import org.bukkit.event.world.GenericGameEvent;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
@@ -164,12 +163,12 @@ public final class PlayerDataListener implements Listener {
             event.setCancelled(true);
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
         stopLoading(event.getPlayer());
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerKick(PlayerKickEvent event) {
         stopLoading(event.getPlayer());
     }
@@ -179,7 +178,7 @@ public final class PlayerDataListener implements Listener {
         playerDataManager.logPlayerData(PlayerDataLog.death(event));
     }
 
-    private void stopLoading(Player player) {
+    public void stopLoading(Player player) {
         BukkitTask remove = loadingPlayers.remove(player.getUniqueId());
         if(remove != null) {
             remove.cancel();

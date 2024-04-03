@@ -1,7 +1,6 @@
 package eu.darkcode.lifestealaddon;
 
 import eu.darkcode.lifestealaddon.config.IPluginConfig;
-import eu.darkcode.lifestealaddon.playerdata.PlayerDataLog;
 import eu.darkcode.lifestealaddon.playerdata.PlayerDataManager;
 import eu.darkcode.lifestealaddon.utils.MessageUtil;
 import eu.darkcode.lifestealaddon.worldborder.WorldBorderManager;
@@ -42,11 +41,7 @@ public final class Core extends JavaPlugin {
         if(playerDataManager != null){
             for (Player player : Bukkit.getOnlinePlayers()) {
                 MessageUtil.kick(player, "&7Restarting...");
-                if (playerDataManager.savePlayerData(player.getName(), player.getUniqueId(), playerDataManager.fetch(player))) {
-                    playerDataManager.logPlayerData(PlayerDataLog.save(player));
-                }else{
-                    playerDataManager.logPlayerData(PlayerDataLog.saveFailed(player));
-                }
+                playerDataManager.getListener().stopLoading(player);
             }
             playerDataManager.close();
         }else{

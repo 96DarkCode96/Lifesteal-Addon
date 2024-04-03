@@ -38,7 +38,7 @@ public final class PlayerDataLogCommand implements TabExecutor {
             return true;
         }
 
-        if(args.length == 2 || (args.length == 4 && args[2].equalsIgnoreCase("|"))) {
+        if(args.length == 2 || (args.length == 4 && (args[2].equalsIgnoreCase("|") || args[2].equalsIgnoreCase("~")))) {
             Collection<PlayerDataLog> logs;
             if(args[0].equalsIgnoreCase("name")){
                 logs = playerDataManager.getLogsByName(args[1]);
@@ -57,8 +57,10 @@ public final class PlayerDataLogCommand implements TabExecutor {
                 return true;
             }
             Stream<PlayerDataLog> stream = logs.stream();
-            if(args.length == 4)
+            if(args.length == 4 && args[2].equalsIgnoreCase("|"))
                 stream = stream.filter((log) -> log.getEvent().getName().equalsIgnoreCase(args[3]));
+            else if(args.length == 4 && args[2].equalsIgnoreCase("~"))
+                stream = stream.filter((log) -> TIME_FORMATTER.format(Instant.ofEpochMilli(log.getDateMillis())).startsWith(args[3]));
 
             List<PlayerDataLog> list = stream.toList();
             if(list.isEmpty()){
@@ -100,13 +102,15 @@ public final class PlayerDataLogCommand implements TabExecutor {
                     .filter(uuid -> uuid.toLowerCase().startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
         if(args.length == 3)
-            return List.of("|");
+            return List.of("|", "~");
         if(args.length == 4 && args[2].equalsIgnoreCase("|"))
             return Arrays.stream(PlayerDataLog.Event
                     .values())
                     .map(PlayerDataLog.Event::getName)
                     .filter(name -> name.toLowerCase().startsWith(args[3].toLowerCase()))
                     .collect(Collectors.toList());
+        if(args.length == 4 && args[2].equalsIgnoreCase("~"))
+            return List.of("<date>");
         return List.of();
     }
 }
