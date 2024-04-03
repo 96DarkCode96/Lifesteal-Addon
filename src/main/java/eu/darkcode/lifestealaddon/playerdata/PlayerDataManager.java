@@ -8,12 +8,14 @@ import eu.darkcode.lifestealaddon.Core;
 import eu.darkcode.lifestealaddon.config.IPluginConfig;
 import eu.darkcode.lifestealaddon.config.PluginConfig;
 import eu.darkcode.lifestealaddon.playerdata.entries.PlayerDataEntryManager;
+import eu.darkcode.lifestealaddon.utils.MessageUtil;
 import eu.darkcode.lifestealaddon.utils.MethodResult;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,10 +27,13 @@ import java.util.logging.Level;
 public final class PlayerDataManager {
 
     private static final Gson GSON = new GsonBuilder().create();
+    private static final long AUTO_SAVE_DELAY = 20 * 60 * 30; // 30 minutes
     private final @NotNull Core core;
     private final IPluginConfig config;
     private final Connection conn;
     private final PlayerDataEntryManager entryManager;
+    private final BukkitTask autoSaveTask;
+
     public PlayerDataManager(@NotNull Core core) throws DatabaseNotEnabledException{
         this.core = core;
 
@@ -86,6 +91,18 @@ public final class PlayerDataManager {
             cmd.setExecutor(new PlayerDataLogCommand(this));
             cmd.setTabCompleter(new PlayerDataLogCommand(this));
         }
+
+        autoSaveTask = Bukkit.getScheduler().runTaskTimer(core, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (savePlayerData(player.getName(), player.getUniqueId(), fetch(player))) {
+                    logPlayerData(PlayerDataLog.autoSave(player));
+                    MessageUtil.send(player, "&8[&cServer&8] &7Your player data has been saved! (Auto-Save)");
+                } else {
+                    logPlayerData(PlayerDataLog.autoSaveFailed(player));
+                }
+            }
+        }, AUTO_SAVE_DELAY, AUTO_SAVE_DELAY);
+
     }
 
     public void removeOldLogsByUUID(@NotNull UUID uuid) {
@@ -95,7 +112,7 @@ public final class PlayerDataManager {
     public void removeOldLogsByUUID(@NotNull String uuid) {
         try {
             SQLActionBuilder.function(PreparedStatement::execute)
-                    .sql("DELETE FROM `player_data_log` WHERE `uuid` = ? AND NOW() - `date` >= 604800")
+                    .sql("DELETE FROM `player_data_log` WHERE `uuid` = ? AND time_to_sec(timediff(current_timestamp(), date)) >= 604800")
                     .prepare((ps) -> ps.setString(1, uuid))
                     .execute(conn);
         } catch (Throwable e) {
@@ -222,6 +239,11 @@ public final class PlayerDataManager {
     }
 
     public void close() {
+        try {
+            autoSaveTask.cancel();
+        }catch (Throwable e) {
+            Bukkit.getLogger().log(Level.SEVERE, "Failed to cancel autosave task", e);
+        }
         try {
             getConn().close();
         } catch (Throwable e) {

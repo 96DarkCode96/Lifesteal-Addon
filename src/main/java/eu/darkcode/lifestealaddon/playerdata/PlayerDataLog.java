@@ -49,6 +49,20 @@ public final class PlayerDataLog {
         return of(player, Event.SAVE_DATA, System.currentTimeMillis(), comment);
     }
 
+    public static PlayerDataLog autoSave(@NotNull Player player) {
+        JsonObject comment = new JsonObject();
+        comment.addProperty("Max-HP", player.getMaxHealth());
+        comment.addProperty("HP", player.getHealth());
+        return of(player, Event.AUTO_SAVE_DATA, System.currentTimeMillis(), comment);
+    }
+
+    public static PlayerDataLog autoSaveFailed(@NotNull Player player) {
+        JsonObject comment = new JsonObject();
+        comment.addProperty("Max-HP", player.getMaxHealth());
+        comment.addProperty("HP", player.getHealth());
+        return of(player, Event.AUTO_SAVE_DATA_FAILED, System.currentTimeMillis(), comment);
+    }
+
     public static PlayerDataLog saveFailed(@NotNull Player player) {
         JsonObject comment = new JsonObject();
         comment.addProperty("Max-HP", player.getMaxHealth());
@@ -82,12 +96,14 @@ public final class PlayerDataLog {
 
     @Getter
     public enum Event {
-        LOAD_DATA(0, "[LOAD]"),
-        SAVE_DATA(1, "[SAVE]"),
-        PLAYER_DEATH(2, "[DEATH]"),
-        LOAD_DATA_FAILED(3, "[LOAD-FAILED]"),
-        SAVE_DATA_FAILED(4, "[SAVE-FAILED]"),
-        LOAD_DATA_FIRST_JOIN(5, "[LOAD-FIRST-JOIN]");
+        LOAD_DATA(0, "LOAD"),
+        SAVE_DATA(1, "SAVE"),
+        PLAYER_DEATH(2, "DEATH"),
+        LOAD_DATA_FAILED(3, "LOAD-FAILED"),
+        SAVE_DATA_FAILED(4, "SAVE-FAILED"),
+        LOAD_DATA_FIRST_JOIN(5, "LOAD-FIRST-JOIN"),
+        AUTO_SAVE_DATA(6, "AUTO-SAVE"),
+        AUTO_SAVE_DATA_FAILED(7, "AUTO-SAVE-FAILED");
 
         private static final Map<Integer, Event> EVENTS = new HashMap<>();
 

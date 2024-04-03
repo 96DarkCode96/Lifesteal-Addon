@@ -15,11 +15,9 @@ import org.jetbrains.annotations.Nullable;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Getter
 public final class PlayerDataLogCommand implements TabExecutor {
@@ -40,7 +38,7 @@ public final class PlayerDataLogCommand implements TabExecutor {
             return true;
         }
 
-        if(args.length == 2) {
+        if(args.length == 2 || (args.length == 4 && args[2].equalsIgnoreCase("|"))) {
             Collection<PlayerDataLog> logs;
             if(args[0].equalsIgnoreCase("name")){
                 logs = playerDataManager.getLogsByName(args[1]);
@@ -58,14 +56,19 @@ public final class PlayerDataLogCommand implements TabExecutor {
                 MessageUtil.send(sender, "&8[&cData Log&8] &cFailed to load logs!");
                 return true;
             }
-            if(logs.isEmpty()){
+            Stream<PlayerDataLog> stream = logs.stream();
+            if(args.length == 4)
+                stream = stream.filter((log) -> log.getEvent().getName().equalsIgnoreCase(args[3]));
+
+            List<PlayerDataLog> list = stream.toList();
+            if(list.isEmpty()){
                 if(sender instanceof Player player) SoundUtil.playSound(player, Sound.ENTITY_VILLAGER_HURT);
                 MessageUtil.send(sender, "&8[&cData Log&8] &cNo logs found!");
                 return true;
             }
             List<String> messages = new ArrayList<>();
-            logs.stream().sorted(Comparator.comparingLong(PlayerDataLog::getDateMillis)).forEach(log -> {
-                messages.add("&8[&cData Log&8] &8» &7" + TIME_FORMATTER.format(Instant.ofEpochMilli(log.getDateMillis())) + " - &c" + log.getEvent().getName());
+            list.stream().sorted(Comparator.comparingLong(PlayerDataLog::getDateMillis)).forEach(log -> {
+                messages.add("&8[&cData Log&8] &8» &7" + TIME_FORMATTER.format(Instant.ofEpochMilli(log.getDateMillis())) + " - &c[" + log.getEvent().getName() + "]");
                 log.getComment().entrySet().forEach(entry -> messages.add("&8[&cData Log&8]   &8» &7" + entry.getKey() + ": " + entry.getValue()));
             });
             MessageUtil.send(sender, String.join("\n", messages));
@@ -73,7 +76,7 @@ public final class PlayerDataLogCommand implements TabExecutor {
             return true;
         }
         if(sender instanceof Player player) SoundUtil.playSound(player, Sound.ENTITY_VILLAGER_NO);
-        MessageUtil.send(sender, "&8[&cData Log&8] &cInvalid usage! &8(&c/playerdatalog uuid <uuid> &8| &c/border name <name> &8)");
+        MessageUtil.send(sender, "&8[&cData Log&8] &cInvalid usage! &8(&c/playerdatalog uuid <uuid> &8| &c/playerdatalog name <name> &8)");
         return true;
     }
 
@@ -95,6 +98,14 @@ public final class PlayerDataLogCommand implements TabExecutor {
                     .map(Player::getUniqueId)
                     .map(uuid -> uuid.toString().replaceAll("-", ""))
                     .filter(uuid -> uuid.toLowerCase().startsWith(args[1].toLowerCase()))
+                    .collect(Collectors.toList());
+        if(args.length == 3)
+            return List.of("|");
+        if(args.length == 4 && args[2].equalsIgnoreCase("|"))
+            return Arrays.stream(PlayerDataLog.Event
+                    .values())
+                    .map(PlayerDataLog.Event::getName)
+                    .filter(name -> name.toLowerCase().startsWith(args[3].toLowerCase()))
                     .collect(Collectors.toList());
         return List.of();
     }
