@@ -94,7 +94,7 @@ public final class PlayerDataManager {
             cmd.setTabCompleter(new PlayerDataLogCommand(this));
         }
 
-        autoSaveTask = Bukkit.getScheduler().runTaskTimer(core, () -> {
+        autoSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(core, () -> {
             Bukkit.getLogger().info("Auto-saving player data...");
             for(Player player : Bukkit.getOnlinePlayers()) {
                 if(listener.getLoadingPlayers().containsKey(player.getUniqueId())) continue;
