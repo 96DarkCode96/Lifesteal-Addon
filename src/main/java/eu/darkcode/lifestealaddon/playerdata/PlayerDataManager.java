@@ -35,7 +35,7 @@ public final class PlayerDataManager {
     private final BukkitTask autoSaveTask;
     private final PlayerDataListener listener;
 
-    public PlayerDataManager(@NotNull Core core) throws DatabaseNotEnabledException{
+    public PlayerDataManager(@NotNull Core core) throws DatabaseNotEnabledException {
         this.core = core;
 
         this.entryManager = new PlayerDataEntryManager(this);
@@ -79,7 +79,7 @@ public final class PlayerDataManager {
 
         } catch(SQLNonTransientConnectionException e) {
             throw new RuntimeException("Failed to connect to database!", e);
-        } catch (Throwable e) {
+        } catch(Throwable e) {
             throw new RuntimeException(e);
         }
 
@@ -89,15 +89,17 @@ public final class PlayerDataManager {
         PluginCommand cmd = core.getCommand("playerdatalog");
         if(cmd == null) {
             Bukkit.getLogger().warning("Failed to register playerdatalog command!");
-        }else{
+        } else {
             cmd.setExecutor(new PlayerDataLogCommand(this));
             cmd.setTabCompleter(new PlayerDataLogCommand(this));
         }
 
         autoSaveTask = Bukkit.getScheduler().runTaskTimer(core, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
+            Bukkit.getLogger().info("Auto-saving player data...");
+            for(Player player : Bukkit.getOnlinePlayers()) {
                 if(listener.getLoadingPlayers().containsKey(player.getUniqueId())) continue;
-                if (savePlayerData(player.getName(), player.getUniqueId(), fetch(player))) {
+
+                if(savePlayerData(player.getName(), player.getUniqueId(), fetch(player))) {
                     logPlayerData(PlayerDataLog.autoSave(player));
                     MessageUtil.send(player, "&8[&cServer&8] &7Your player data has been saved! (Auto-Save)");
                 } else {
@@ -118,7 +120,7 @@ public final class PlayerDataManager {
                     .sql("DELETE FROM `player_data_log` WHERE `uuid` = ? AND time_to_sec(timediff(current_timestamp(), date)) >= 604800")
                     .prepare((ps) -> ps.setString(1, uuid))
                     .execute(conn);
-        } catch (Throwable e) {
+        } catch(Throwable e) {
             Bukkit.getLogger().log(Level.SEVERE, "Failed to remove old player's data logs for uuid: " + uuid, e);
         }
     }
@@ -142,7 +144,7 @@ public final class PlayerDataManager {
                     .sql("SELECT * FROM `player_data_log` WHERE `name` = ?")
                     .prepare((ps) -> ps.setString(1, name))
                     .retry(getConn(), 5);
-        } catch (Throwable e) {
+        } catch(Throwable e) {
             Bukkit.getLogger().log(Level.SEVERE, "Failed to grab player's data logs for name: " + name, e);
             return null;
         }
@@ -167,7 +169,7 @@ public final class PlayerDataManager {
                     .sql("SELECT * FROM `player_data_log` WHERE `uuid` = ?")
                     .prepare((ps) -> ps.setString(1, uuid))
                     .retry(getConn(), 5);
-        } catch (Throwable e) {
+        } catch(Throwable e) {
             Bukkit.getLogger().log(Level.SEVERE, "Failed to grab player's data logs for uuid: " + uuid, e);
             return null;
         }
@@ -184,7 +186,7 @@ public final class PlayerDataManager {
                         ps.setString(4, GSON.toJson(log.getComment()));
                     })
                     .retry(getConn(), 5) != 0;
-        } catch (Throwable e) {
+        } catch(Throwable e) {
             // MAYBE FOR BETTER ERROR HANDLING ADD FAILED DATA STORAGE (AKA SAVES TO FILE IF FAILED TO DATABASE - BETTER FOR ROLLBACK)
             Bukkit.getLogger().log(Level.SEVERE, "Failed to log player data for " + log.getName() + " (" + log.getUuid() + ")", e);
             return false;
@@ -200,9 +202,8 @@ public final class PlayerDataManager {
                         ps.setString(1, uuid.toString().replaceAll("-", ""));
                         ps.setString(2, name);
                         ps.setString(3, GSON.toJson(data));
-                    })
-                    .retry(getConn(), 5) != 0;
-        } catch (Throwable e) {
+                    }).retry(getConn(), 5) != 0;
+        } catch(Throwable e) {
             // MAYBE FOR BETTER ERROR HANDLING ADD FAILED DATA STORAGE (AKA SAVES TO FILE IF FAILED TO DATABASE - BETTER FOR ROLLBACK)
             Bukkit.getLogger().log(Level.SEVERE, "Failed to save player data for " + name + " (" + uuid + ")", e);
             Bukkit.getLogger().info("DATA: " + GSON.toJson(data));
@@ -221,7 +222,7 @@ public final class PlayerDataManager {
                     .sql("SELECT `data` FROM `player_data` WHERE `uuid` = ?")
                     .prepare((ps) -> ps.setString(1, uuid.toString().replaceAll("-", "")))
                     .retry(getConn(), 5);
-        } catch (Throwable e) {
+        } catch(Throwable e) {
             Bukkit.getLogger().log(Level.SEVERE, "Failed to load player data for " + name + " (" + uuid + ")", e);
             return MethodResult.error(e);
         }
@@ -231,7 +232,7 @@ public final class PlayerDataManager {
         JsonObject data = new JsonObject();
         getEntryManager().getEntries().forEach((entry) -> {
             MethodResult result = entry.save(getCore(), player, data);
-            if (!result.isSuccess()) {
+            if(!result.isSuccess()) {
                 if(result.hasError())
                     Bukkit.getLogger().log(Level.SEVERE, "Failed to save player data for " + player.getName() + " (" + player.getUniqueId() + ")", result.getError());
                 else
@@ -244,15 +245,16 @@ public final class PlayerDataManager {
     public void close() {
         try {
             autoSaveTask.cancel();
-        }catch (Throwable e) {
+        } catch(Throwable e) {
             Bukkit.getLogger().log(Level.SEVERE, "Failed to cancel autosave task", e);
         }
         try {
             getConn().close();
-        } catch (Throwable e) {
+        } catch(Throwable e) {
             Bukkit.getLogger().log(Level.SEVERE, "Failed to close SQL connection", e);
         }
     }
 
-    public static class DatabaseNotEnabledException extends Throwable {}
+    public static class DatabaseNotEnabledException extends Throwable {
+    }
 }
