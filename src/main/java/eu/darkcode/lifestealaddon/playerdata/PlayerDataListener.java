@@ -1,5 +1,6 @@
 package eu.darkcode.lifestealaddon.playerdata;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.darkcode.lifestealaddon.playerdata.entries.PlayerDataEntry;
 import eu.darkcode.lifestealaddon.utils.MessageUtil;
@@ -183,11 +184,13 @@ public final class PlayerDataListener implements Listener {
         if(remove != null) {
             remove.cancel();
         } else {
-            if (playerDataManager.savePlayerData(player.getName(), player.getUniqueId(), playerDataManager.fetch(player))) {
-                playerDataManager.logPlayerData(PlayerDataLog.save(player));
-            }else {
-                playerDataManager.logPlayerData(PlayerDataLog.saveFailed(player));
-            }
+            playerDataManager.getExecutorService().execute(() -> {
+                if (playerDataManager.savePlayerData(player.getName(), player.getUniqueId(), playerDataManager.fetch(player))) {
+                    playerDataManager.logPlayerData(PlayerDataLog.save(player));
+                }else {
+                    playerDataManager.logPlayerData(PlayerDataLog.saveFailed(player));
+                }
+            });
         }
     }
 

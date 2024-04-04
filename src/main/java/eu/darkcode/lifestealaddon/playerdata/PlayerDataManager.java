@@ -21,6 +21,9 @@ import org.jetbrains.annotations.Nullable;
 
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 @Getter
@@ -34,6 +37,8 @@ public final class PlayerDataManager {
     private final PlayerDataEntryManager entryManager;
     private final BukkitTask autoSaveTask;
     private final PlayerDataListener listener;
+
+    private ExecutorService executorService = Executors.newCachedThreadPool();
 
     public PlayerDataManager(@NotNull Core core) throws DatabaseNotEnabledException {
         this.core = core;
@@ -94,17 +99,27 @@ public final class PlayerDataManager {
             cmd.setTabCompleter(new PlayerDataLogCommand(this));
         }
 
-        autoSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(core, () -> {
-            Bukkit.getLogger().info("Auto-saving player data...");
-            for(Player player : Bukkit.getOnlinePlayers()) {
-                if(listener.getLoadingPlayers().containsKey(player.getUniqueId())) continue;
+        autoSaveTask = Bukkit.getScheduler().runTaskTimer(core, () -> {
+            try {
+                Bukkit.getLogger().info("Auto-saving player data...");
+                for(Player player : Bukkit.getOnlinePlayers()) {
+                    if(listener.getLoadingPlayers().containsKey(player.getUniqueId())) continue;
 
-                if(savePlayerData(player.getName(), player.getUniqueId(), fetch(player))) {
-                    logPlayerData(PlayerDataLog.autoSave(player));
-                    MessageUtil.send(player, "&8[&cServer&8] &7Your player data has been saved! (Auto-Save)");
-                } else {
-                    logPlayerData(PlayerDataLog.autoSaveFailed(player));
+                    executorService.execute(() -> {
+                        try {
+                            if(savePlayerData(player.getName(), player.getUniqueId(), fetch(player))) {
+                                logPlayerData(PlayerDataLog.autoSave(player));
+                                MessageUtil.send(player, "&8[&cServer&8] &7Your player data has been saved! (Auto-Save)");
+                            } else {
+                                logPlayerData(PlayerDataLog.autoSaveFailed(player));
+                            }
+                        } catch (Throwable e) {
+                            Bukkit.getLogger().log(Level.SEVERE, "Failed to auto-save player data (" + player.getName() + ")", e);
+                        }
+                    });
                 }
+            } catch (Throwable e) {
+                Bukkit.getLogger().log(Level.SEVERE, "Failed to auto-save player data", e);
             }
         }, AUTO_SAVE_DELAY, AUTO_SAVE_DELAY);
 
@@ -175,22 +190,23 @@ public final class PlayerDataManager {
         }
     }
 
-    public boolean logPlayerData(@NotNull PlayerDataLog log) {
-        try {
-            return SQLActionBuilder.function(PreparedStatement::executeUpdate)
-                    .sql("INSERT INTO `player_data_log` (`uuid`, `name`, `eventId`, `comment`) VALUES (?, ?, ?, ?)")
-                    .prepare((ps) -> {
-                        ps.setString(1, log.getUuid());
-                        ps.setString(2, log.getName());
-                        ps.setInt(3, log.getEventId());
-                        ps.setString(4, GSON.toJson(log.getComment()));
-                    })
-                    .retry(getConn(), 5) != 0;
-        } catch(Throwable e) {
-            // MAYBE FOR BETTER ERROR HANDLING ADD FAILED DATA STORAGE (AKA SAVES TO FILE IF FAILED TO DATABASE - BETTER FOR ROLLBACK)
-            Bukkit.getLogger().log(Level.SEVERE, "Failed to log player data for " + log.getName() + " (" + log.getUuid() + ")", e);
-            return false;
-        }
+    public void logPlayerData(@NotNull PlayerDataLog log) {
+        executorService.execute(() -> {
+            try {
+                SQLActionBuilder.function(PreparedStatement::executeUpdate)
+                        .sql("INSERT INTO `player_data_log` (`uuid`, `name`, `eventId`, `comment`) VALUES (?, ?, ?, ?)")
+                        .prepare((ps) -> {
+                            ps.setString(1, log.getUuid());
+                            ps.setString(2, log.getName());
+                            ps.setInt(3, log.getEventId());
+                            ps.setString(4, GSON.toJson(log.getComment()));
+                        })
+                        .retry(getConn(), 5);
+            } catch(Throwable e) {
+                // MAYBE FOR BETTER ERROR HANDLING ADD FAILED DATA STORAGE (AKA SAVES TO FILE IF FAILED TO DATABASE - BETTER FOR ROLLBACK)
+                Bukkit.getLogger().log(Level.SEVERE, "Failed to log player data for " + log.getName() + " (" + log.getUuid() + ")", e);
+            }
+        });
     }
 
     public boolean savePlayerData(@NotNull String name, @NotNull UUID uuid, @NotNull JsonElement data) {
@@ -247,6 +263,14 @@ public final class PlayerDataManager {
             autoSaveTask.cancel();
         } catch(Throwable e) {
             Bukkit.getLogger().log(Level.SEVERE, "Failed to cancel autosave task", e);
+        }
+        try {
+            executorService.shutdown();
+            if(!executorService.awaitTermination(5, TimeUnit.SECONDS)){
+                executorService.shutdownNow();
+            }
+        }catch (Throwable e) {
+            Bukkit.getLogger().log(Level.SEVERE, "Failed to shutdown executor", e);
         }
         try {
             getConn().close();
