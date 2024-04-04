@@ -18,7 +18,7 @@ public final class Core extends JavaPlugin {
     @Override
     public void onEnable() {
 
-        if(!IPluginConfig.initConfigDir(this)){
+        if(!IPluginConfig.initConfigDir(this)) {
             Bukkit.getLogger().severe("Failed to initialize config directory!"); // This should never happen but just in case if it does (permission issues, etc...)
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -27,7 +27,7 @@ public final class Core extends JavaPlugin {
         this.worldBorderManager = new WorldBorderManager(this);
         try {
             this.playerDataManager = new PlayerDataManager(this);
-        } catch (PlayerDataManager.DatabaseNotEnabledException e) {
+        } catch(PlayerDataManager.DatabaseNotEnabledException e) {
             Bukkit.getLogger().severe("Failed to create player data manager! (Database not enabled and setup in config!)");
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -38,13 +38,13 @@ public final class Core extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if(playerDataManager != null){
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                MessageUtil.kick(player, "&7Restarting...");
+        if(playerDataManager != null) {
+            for(Player player : Bukkit.getOnlinePlayers()) {
                 playerDataManager.getListener().stopLoading(player);
+                MessageUtil.kick(player, "Data saved correctly!");
             }
             playerDataManager.close();
-        }else{
+        } else {
             Bukkit.getLogger().info("Data of players could not be saved! (PlayerDataManager not initialized!)");
         }
 

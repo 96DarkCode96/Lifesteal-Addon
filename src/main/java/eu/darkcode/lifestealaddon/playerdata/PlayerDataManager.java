@@ -27,7 +27,7 @@ import java.util.logging.Level;
 public final class PlayerDataManager {
 
     private static final Gson GSON = new GsonBuilder().create();
-    private static final long AUTO_SAVE_DELAY = 20 * 60 * 10; // 10 minutes
+    private static final long AUTO_SAVE_DELAY = 20 * 60 * 5; // 5 minutes
     private final @NotNull Core core;
     private final IPluginConfig config;
     private final Connection conn;
