@@ -1,6 +1,5 @@
 package eu.darkcode.lifestealaddon.playerdata;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.darkcode.lifestealaddon.playerdata.entries.PlayerDataEntry;
 import eu.darkcode.lifestealaddon.utils.MessageUtil;
@@ -15,7 +14,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
@@ -66,7 +64,6 @@ public final class PlayerDataListener implements Listener {
                 // KICK PLAYER
                 Bukkit.getScheduler().callSyncMethod(playerDataManager.getCore(), () -> {
                     MessageUtil.kick(player, "&8[&cServer&8] &7Failed to load your data!");
-                    playerDataManager.logPlayerData(PlayerDataLog.loadFailed(player));
                     return null;
                 });
 
@@ -97,7 +94,6 @@ public final class PlayerDataListener implements Listener {
                 // KICK PLAYER
                 Bukkit.getScheduler().callSyncMethod(playerDataManager.getCore(), () -> {
                     MessageUtil.kick(player, "&8[&cServer&8] &7Failed to load your data!");
-                    playerDataManager.logPlayerData(PlayerDataLog.loadFailed(player));
                     return null;
                 });
 
@@ -124,13 +120,6 @@ public final class PlayerDataListener implements Listener {
                 player.removePotionEffect(PotionEffectType.DARKNESS);
                 return null;
             });
-
-            if(playerData == null)
-                playerDataManager.logPlayerData(PlayerDataLog.loadFirstJoin(player));
-            else
-                playerDataManager.logPlayerData(PlayerDataLog.load(player));
-
-            playerDataManager.removeOldLogsByUUID(player.getUniqueId());
         }));
     }
 
@@ -174,23 +163,13 @@ public final class PlayerDataListener implements Listener {
         stopLoading(event.getPlayer());
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        playerDataManager.logPlayerData(PlayerDataLog.death(event));
-    }
-
     public void stopLoading(Player player) {
         BukkitTask remove = loadingPlayers.remove(player.getUniqueId());
         if(remove != null) {
             remove.cancel();
         } else {
-            playerDataManager.getExecutorService().execute(() -> {
-                if (playerDataManager.savePlayerData(player.getName(), player.getUniqueId(), playerDataManager.fetch(player))) {
-                    playerDataManager.logPlayerData(PlayerDataLog.save(player));
-                }else {
-                    playerDataManager.logPlayerData(PlayerDataLog.saveFailed(player));
-                }
-            });
+            playerDataManager.getExecutorService().execute(() ->
+                    playerDataManager.savePlayerData(player.getName(), player.getUniqueId(), playerDataManager.fetch(player)));
         }
     }
 

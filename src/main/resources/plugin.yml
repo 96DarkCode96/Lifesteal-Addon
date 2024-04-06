@@ -11,8 +11,3 @@ commands:
     aliases: [worldborder, wb, wborder]
     usage: "/border [set|remove] [<world>] [<size>]"
     permission: slux.developer
-  playerdatalog:
-    description: "View player data log"
-    aliases: [pdlog, pdl]
-    usage: "/playerdatalog [name|uuid] [playerName|playerUUID]"
-    permission: slux.developer
